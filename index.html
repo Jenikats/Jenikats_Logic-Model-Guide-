@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logic Model Builder</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root {
+    --amber: #D4952A; --amber-light: #FFF3DC; --amber-dark: #A67220;
+    --coral: #B85042; --coral-light: #FDECEA;
+    --teal: #2A6E7F; --teal-light: #D8EEF3; --teal-dark: #1D4E5A;
+    --slate: #4A5568; --charcoal: #2D3748;
+    --offwhite: #F8F9FA; --lightgray: #E8ECEF; --midgray: #9AA5B1;
+    --green: #2D7A2D; --green-light: #E8F5E8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Calibri, Arial, sans-serif; background: #F0F4F8; color: var(--charcoal); min-height: 100vh; }
+
+  /* ── Header ── */
+  .app-header { background: var(--charcoal); color: white; padding: 1rem 2rem; display: flex; justify-content: center; align-items: center; }
+  .app-header-inner { text-align: center; }
+  .app-header h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.2rem; }
+  .app-header .header-sub { font-size: 0.85rem; color: #CBD5E0; display: flex; align-items: center; justify-content: center; gap: 0.6rem; flex-wrap: wrap; }
+  .app-header .header-credit { font-size: 0.75rem; color: #A0AEC0; margin-top: 0.25rem; }
+  .header-badge { background: var(--amber); color: white; padding: 0.2rem 0.7rem; border-radius: 20px; font-size: 0.72rem; font-weight: 700; white-space: nowrap; display: inline-block; }
+
+  /* ── Footer ── */
+  .app-footer { background: var(--charcoal); color: #A0AEC0; text-align: center; font-size: 0.78rem; padding: 0.75rem 2rem; border-top: 1px solid #3D4A5C; }
+  .app-footer a { color: var(--amber); text-decoration: none; }
+  .app-footer a:hover { text-decoration: underline; }
+
+  /* ── Resources page ── */
+  .resource-card { background: white; border-radius: 10px; border: 1.5px solid var(--lightgray); padding: 1.2rem 1.4rem; margin-bottom: 0.85rem; box-shadow: 0 1px 4px rgba(0,0,0,0.05); display: flex; gap: 1rem; align-items: flex-start; transition: border-color 0.2s; }
+  .resource-card:hover { border-color: var(--amber); }
+  .resource-type-badge { flex-shrink: 0; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; padding: 0.2rem 0.5rem; border-radius: 4px; margin-top: 0.15rem; letter-spacing: 0.04em; }
+  .resource-card h4 { font-size: 0.92rem; font-weight: 700; color: var(--charcoal); margin-bottom: 0.25rem; }
+  .resource-card p { font-size: 0.82rem; color: var(--slate); line-height: 1.5; margin-bottom: 0.35rem; }
+  .resource-card a { font-size: 0.8rem; color: var(--teal); text-decoration: none; word-break: break-all; }
+  .resource-card a:hover { text-decoration: underline; }
+  .link-btn { background: none; border: none; color: var(--teal); font-size: 0.8rem; cursor: pointer; padding: 0; font-family: inherit; text-decoration: underline; text-align: left; word-break: break-all; }
+  .link-btn:hover { color: var(--teal-dark); }
+  .copy-url-wrap { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem; }
+  .copy-url-text { font-size: 0.75rem; color: var(--midgray); font-family: monospace; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .copy-btn { flex-shrink: 0; background: var(--teal-light); color: var(--teal); border: 1px solid var(--teal); border-radius: 5px; font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.6rem; cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap; }
+  .copy-btn:hover { background: var(--teal); color: white; }
+  .resource-section-head { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--midgray); margin: 1.5rem 0 0.6rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--lightgray); }
+
+  /* ── Step Progress ── */
+  .step-nav { background: white; border-bottom: 2px solid var(--lightgray); padding: 0.75rem 2rem; display: flex; align-items: center; gap: 0; overflow-x: auto; }
+  .step-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: var(--midgray); white-space: nowrap; cursor: pointer; padding: 0.3rem 0.5rem; border-radius: 6px; transition: all 0.2s; }
+  .step-item:hover { background: var(--lightgray); }
+  .step-item.active { color: var(--charcoal); font-weight: 700; }
+  .step-item.done { color: var(--green); }
+  .step-num { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; background: var(--lightgray); color: var(--midgray); flex-shrink: 0; }
+  .step-item.active .step-num { background: var(--amber); color: white; }
+  .step-item.done .step-num { background: var(--green); color: white; }
+  .step-arrow { color: var(--lightgray); font-size: 0.8rem; margin: 0 0.1rem; }
+
+  /* ── Main Layout ── */
+  .main { display: flex; gap: 0; min-height: calc(100vh - 120px); }
+  .sidebar { width: 320px; flex-shrink: 0; background: white; border-right: 1px solid var(--lightgray); padding: 1.5rem; overflow-y: auto; }
+  .content { flex: 1; padding: 1.5rem 2rem; overflow-y: auto; }
+
+  /* ── Sidebar: Learn box ── */
+  .learn-box { border-radius: 10px; padding: 1.2rem; margin-bottom: 1rem; }
+  .learn-box.amber { background: var(--amber-light); border-left: 4px solid var(--amber); }
+  .learn-box.teal { background: var(--teal-light); border-left: 4px solid var(--teal); }
+  .learn-box.coral { background: var(--coral-light); border-left: 4px solid var(--coral); }
+  .learn-box.green { background: var(--green-light); border-left: 4px solid var(--green); }
+  .learn-box h4 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+  .learn-box.amber h4 { color: var(--amber-dark); }
+  .learn-box.teal h4 { color: var(--teal); }
+  .learn-box.coral h4 { color: var(--coral); }
+  .learn-box.green h4 { color: var(--green); }
+  .learn-box p, .learn-box li { font-size: 0.83rem; color: var(--slate); line-height: 1.55; }
+  .learn-box ul { padding-left: 1rem; }
+  .learn-box li { margin-bottom: 0.3rem; }
+  .example-tag { display: inline-block; background: var(--lightgray); color: var(--slate); font-size: 0.72rem; padding: 0.1rem 0.45rem; border-radius: 4px; margin: 0.15rem 0.1rem 0.15rem 0; }
+
+  /* ── Content area ── */
+  .section-header { margin-bottom: 1.5rem; }
+  .section-header h2 { font-size: 1.6rem; color: var(--charcoal); margin-bottom: 0.35rem; }
+  .section-header .subtitle { font-size: 0.95rem; color: var(--slate); line-height: 1.5; }
+  .section-header .component-label { display: inline-block; padding: 0.2rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700; margin-bottom: 0.6rem; }
+
+  /* ── Input cards ── */
+  .input-card { background: white; border-radius: 10px; border: 1.5px solid var(--lightgray); padding: 1.2rem; margin-bottom: 1rem; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+  .input-card h3 { font-size: 0.9rem; font-weight: 700; color: var(--charcoal); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem; }
+  .input-card .card-hint { font-size: 0.78rem; color: var(--midgray); margin-bottom: 0.6rem; }
+  .input-card textarea { width: 100%; border: 1.5px solid var(--lightgray); border-radius: 6px; padding: 0.6rem 0.75rem; font-size: 0.9rem; font-family: inherit; color: var(--charcoal); resize: vertical; min-height: 80px; transition: border-color 0.2s; }
+  .input-card textarea:focus { outline: none; border-color: var(--amber); }
+  .input-card textarea::placeholder { color: #BEC5CF; }
+  .input-card input[type=text] { width: 100%; border: 1.5px solid var(--lightgray); border-radius: 6px; padding: 0.55rem 0.75rem; font-size: 0.95rem; font-family: inherit; color: var(--charcoal); transition: border-color 0.2s; }
+  .input-card input[type=text]:focus { outline: none; border-color: var(--amber); }
+
+  .subcategory-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .subcategory-item label { font-size: 0.78rem; font-weight: 600; color: var(--slate); display: block; margin-bottom: 0.3rem; }
+
+  /* ── Chips / tags ── */
+  .chip-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; }
+  .chip { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.75rem; cursor: pointer; border: 1.5px solid; transition: all 0.15s; user-select: none; }
+  .chip:hover { opacity: 0.85; }
+  .chip.amber { background: var(--amber-light); color: var(--amber-dark); border-color: var(--amber); }
+  .chip.teal { background: var(--teal-light); color: var(--teal); border-color: var(--teal); }
+  .chip.coral { background: var(--coral-light); color: var(--coral); border-color: var(--coral); }
+  .chip-label { font-size: 0.75rem; color: var(--midgray); margin-bottom: 0.3rem; display: block; }
+
+  /* ── Navigation buttons ── */
+  .nav-row { display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--lightgray); }
+  .btn { padding: 0.65rem 1.5rem; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+  .btn-primary { background: var(--amber); color: white; }
+  .btn-primary:hover { background: var(--amber-dark); }
+  .btn-secondary { background: white; color: var(--slate); border: 1.5px solid var(--lightgray); }
+  .btn-secondary:hover { border-color: var(--amber); color: var(--amber-dark); }
+  .btn-teal { background: var(--teal); color: white; }
+  .btn-teal:hover { background: var(--teal-dark); }
+  .btn-coral { background: var(--coral); color: white; }
+  .btn-success { background: var(--green); color: white; }
+  .btn-success:hover { filter: brightness(0.9); }
+  .btn-lg { padding: 0.8rem 2rem; font-size: 1rem; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Progress bar ── */
+  .progress-wrap { background: var(--lightgray); border-radius: 4px; height: 6px; margin-bottom: 0.5rem; }
+  .progress-bar { height: 6px; border-radius: 4px; background: var(--amber); transition: width 0.4s; }
+
+  /* ── Preview / Logic Model ── */
+  #logic-model-preview { background: white; border-radius: 10px; border: 2px solid var(--lightgray); padding: 1.2rem; margin-bottom: 1.5rem; font-family: 'Segoe UI', Calibri, Arial, sans-serif; }
+  .lm-title { font-size: 1rem; font-weight: 700; color: var(--charcoal); margin-bottom: 0.6rem; }
+  .lm-program-name { font-size: 0.85rem; color: var(--slate); margin-bottom: 1rem; }
+  .lm-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr; gap: 4px; margin-bottom: 6px; }
+  .lm-col-header { text-align: center; padding: 5px 3px; font-size: 0.62rem; font-weight: 700; color: white; border-radius: 3px 3px 0 0; }
+  .lm-cell { padding: 6px; min-height: 110px; font-size: 0.62rem; color: var(--slate); background: white; border: 1.5px solid var(--lightgray); border-top: none; border-radius: 0 0 3px 3px; white-space: pre-line; line-height: 1.45; }
+  .lm-process-bar { text-align: center; font-size: 0.65rem; font-weight: 700; padding: 3px; color: var(--amber-dark); background: var(--amber-light); border: 1px solid var(--amber); border-radius: 3px; margin-bottom: 3px; grid-column: 1/4; }
+  .lm-outcome-bar { text-align: center; font-size: 0.65rem; font-weight: 700; padding: 3px; color: var(--teal); background: var(--teal-light); border: 1px solid var(--teal); border-radius: 3px; margin-bottom: 3px; grid-column: 4/7; }
+  .lm-footer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 4px; }
+  .lm-footer-cell { padding: 5px 8px; font-size: 0.6rem; color: var(--slate); border-radius: 3px; line-height: 1.45; }
+  .lm-footer-cell.ext { background: var(--lightgray); }
+  .lm-footer-cell.assume { background: var(--amber-light); color: var(--amber-dark); }
+  .lm-footer-cell strong { display: block; margin-bottom: 2px; }
+
+  /* ── Download panel ── */
+  .download-panel { background: white; border-radius: 10px; border: 1.5px solid var(--lightgray); padding: 1.5rem; }
+  .download-panel h3 { font-size: 1.05rem; font-weight: 700; color: var(--charcoal); margin-bottom: 1rem; }
+  .download-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .download-btn { display: flex; align-items: center; gap: 0.6rem; padding: 0.85rem 1rem; border: 1.5px solid var(--lightgray); border-radius: 8px; cursor: pointer; background: white; font-family: inherit; font-size: 0.88rem; color: var(--charcoal); transition: all 0.2s; font-weight: 600; width: 100%; text-align: left; }
+  .download-btn:hover { border-color: var(--amber); color: var(--amber-dark); }
+  .download-icon { width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+
+  /* ── Cheat sheet (hidden, for PDF) ── */
+  #cheat-sheet { display: none; background: white; padding: 24px; width: 760px; font-family: 'Segoe UI', Calibri, Arial, sans-serif; }
+  #cheat-sheet h2 { font-size: 1.1rem; color: var(--charcoal); border-bottom: 2px solid var(--amber); padding-bottom: 6px; margin-bottom: 14px; }
+  #cheat-sheet .cs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  #cheat-sheet .cs-card { border-left: 4px solid; padding: 10px 12px; border-radius: 0 6px 6px 0; }
+  #cheat-sheet .cs-card h3 { font-size: 0.82rem; font-weight: 700; margin-bottom: 4px; }
+  #cheat-sheet .cs-card p { font-size: 0.75rem; color: var(--slate); line-height: 1.5; }
+  #cheat-sheet .cs-card ul { font-size: 0.75rem; color: var(--slate); padding-left: 14px; }
+  #cheat-sheet .cs-card li { margin-bottom: 2px; }
+
+  /* ── Checklist (hidden, for PDF) ── */
+  #checklist { display: none; background: white; padding: 24px; width: 760px; font-family: 'Segoe UI', Calibri, Arial, sans-serif; }
+  #checklist h2 { font-size: 1.1rem; color: var(--charcoal); border-bottom: 2px solid var(--teal); padding-bottom: 6px; margin-bottom: 14px; }
+  #checklist .cl-item { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--lightgray); }
+  #checklist .cl-box { width: 18px; height: 18px; border: 2px solid var(--teal); border-radius: 3px; flex-shrink: 0; margin-top: 2px; }
+  #checklist .cl-text { font-size: 0.85rem; color: var(--slate); line-height: 1.5; }
+  #checklist .cl-text strong { color: var(--charcoal); display: block; font-size: 0.88rem; }
+  #checklist .cl-section { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: var(--teal); margin: 12px 0 4px; letter-spacing: 0.05em; }
+
+  /* ── Alert box ── */
+  .alert { padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.85rem; margin-bottom: 1rem; }
+  .alert-amber { background: var(--amber-light); color: var(--amber-dark); border-left: 4px solid var(--amber); }
+  .alert-teal { background: var(--teal-light); color: var(--teal); border-left: 4px solid var(--teal); }
+
+  /* ── Responsive tweaks ── */
+  @media (max-width: 900px) {
+    .main { flex-direction: column; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--lightgray); }
+    .subcategory-grid { grid-template-columns: 1fr; }
+    .download-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-header-inner">
+    <h1>Logic Model Builder</h1>
+    <div class="header-sub">
+      <span>Evaluation of Programs and Services — build your practicum logic model step by step</span>
+      <span class="header-badge">Interactive Guide</span>
+    </div>
+    <div class="header-credit">Created by Jenika Towana Scott, M.S.W. (PhD Student)</div>
+  </div>
+</header>
+
+<nav class="step-nav" id="stepNav"></nav>
+
+<div class="main">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="content" id="contentArea"></main>
+</div>
+
+<footer class="app-footer">
+  Created by <strong style="color:#E2C97A">Jenika Towana Scott, M.S.W. (PhD Student)</strong> &nbsp;|&nbsp;
+  Evaluation of Programs and Services &nbsp;|&nbsp;
+  <button onclick="showResources()" class="link-btn" style="color:var(--amber)">View Resources</button>
+</footer>
+
+<!-- Hidden render targets for PDF export -->
+<div id="cheat-sheet"></div>
+<div id="checklist"></div>
+
+<script>
+// ─── Data model ────────────────────────────────────────────────────────────────
+const data = {
+  programName: '', problem: '', population: '',
+  financial: '', physical: '', human: '', knowledge: '',
+  activities: '', outputs: '',
+  shortTerm: '', intermediate: '', longTerm: '',
+  externalFactors: '', assumptions: ''
+};
+
+// ─── Step definitions ──────────────────────────────────────────────────────────
+const steps = [
+  { id: 0, label: 'Your Program', short: 'Program' },
+  { id: 1, label: 'Inputs', short: 'Inputs' },
+  { id: 2, label: 'Activities', short: 'Activities' },
+  { id: 3, label: 'Outputs', short: 'Outputs' },
+  { id: 4, label: 'Short-Term Outcomes', short: 'Short-Term' },
+  { id: 5, label: 'Intermediate Outcomes', short: 'Intermediate' },
+  { id: 6, label: 'Long-Term Outcomes', short: 'Long-Term' },
+  { id: 7, label: 'External Factors', short: 'Ext. Factors' },
+  { id: 8, label: 'Assumptions', short: 'Assumptions' },
+  { id: 9, label: 'Your Logic Model', short: 'Preview' },
+];
+
+let currentStep = 0;
+const completed = new Set();
+
+// ─── Step content definitions ──────────────────────────────────────────────────
+const stepContent = [
+  // 0 – Your Program
+  {
+    label: 'Your Program',
+    color: 'var(--charcoal)',
+    colorClass: 'teal',
+    subtitle: 'Start by briefly describing what your program is, what problem it addresses, and who it serves. This anchors every other part of your logic model.',
+    sidebar: [
+      { type: 'learn', color: 'teal', heading: 'Why this matters', text: 'A clear program description keeps your logic model grounded. If you cannot concisely name the problem and population, it is hard to build a credible chain from inputs to outcomes.' },
+      { type: 'learn', color: 'amber', heading: 'Good practice (Kellogg)', text: 'Begin by understanding the situation — use the program goal as your anchor. Everything in the logic model should trace back to the problem you are trying to solve.' },
+      { type: 'learn', color: 'coral', heading: 'Equity lens', text: 'Name the population specifically. "Families in St. Louis" is less useful than "low-income families of color impacted by COVID in St. Louis City." Specificity enables equity-focused evaluation.' }
+    ],
+    fields: [
+      { key: 'programName', label: 'Program Name', type: 'text', placeholder: 'e.g., Dads Matter Home Visiting Program' },
+      { key: 'problem', label: 'Problem or Need Being Addressed', type: 'textarea', placeholder: 'What gap, challenge, or inequity does this program exist to address?\n\ne.g., Fathers are underengaged in home visiting programs, limiting family outcomes for children at risk of maltreatment.' },
+      { key: 'population', label: 'Target Population', type: 'textarea', placeholder: 'Who does this program serve? Be specific — include demographics, geography, circumstances.\n\ne.g., Fathers of children enrolled in home visiting programs in St. Louis City, particularly fathers of color from low-income households.' }
+    ]
+  },
+
+  // 1 – Inputs
+  {
+    label: 'Inputs',
+    colorClass: 'amber',
+    componentLabel: 'PROCESS COMPONENT',
+    subtitle: 'Inputs are the resources invested in the program — what you put in to make everything else possible. Think of these as the fuel for your program.',
+    sidebar: [
+      { type: 'learn', color: 'amber', heading: 'What are inputs?', text: 'Inputs include all resources — financial, physical, human, and knowledge-based — that go into running a program. They are what you invest, not what you do.', examples: ['Grant funding', 'Staff time', 'Office space', 'Partner networks', 'Research literature', 'Community expertise'] },
+      { type: 'learn', color: 'teal', heading: 'UW-Extension guidance', text: 'Think broadly. Inputs include in-kind resources, volunteer time, and knowledge — not just money. If it costs something to make the program run, it is an input.' },
+      { type: 'learn', color: 'coral', heading: 'Equity lens', text: 'Ask: Are resources distributed equitably across populations? Does your funding model prioritize communities most affected by the problem?' }
+    ],
+    fields: [
+      { key: 'financial', label: 'Financial Resources', type: 'textarea', placeholder: 'List funding sources and financial resources.\n\ne.g., Federal grant ($250,000), operating budget ($50,000), in-kind donations from partner organizations.' },
+      { key: 'physical', label: 'Physical Resources', type: 'textarea', placeholder: 'List spaces, equipment, materials.\n\ne.g., Client homes, office space at agency HQ, training curriculum manual, assessment tools, referral directory.' },
+      { key: 'human', label: 'Human Resources', type: 'textarea', placeholder: 'List staff, volunteers, consultants, partners.\n\ne.g., 4 home visitors (FTE), 1 supervisor, trainer, partner agencies, program clients and families.' },
+      { key: 'knowledge', label: 'Knowledge Resources', type: 'textarea', placeholder: 'List knowledge assets, expertise, systems.\n\ne.g., Evidence base on father engagement, community expertise of program participants, care delivery systems, existing partner networks.' }
+    ]
+  },
+
+  // 2 – Activities
+  {
+    label: 'Activities',
+    colorClass: 'amber',
+    componentLabel: 'PROCESS COMPONENT',
+    subtitle: 'Activities are what your program actually does with its inputs. These are the events, processes, tools, and services delivered to participants.',
+    sidebar: [
+      { type: 'learn', color: 'amber', heading: 'What are activities?', text: 'Activities are the actions your program takes — what staff and partners do to produce results. Use action verbs: provide, conduct, develop, connect, facilitate, recruit, train, assess.', examples: ['Provide case management', 'Conduct weekly home visits', 'Facilitate group sessions', 'Connect clients to referral services', 'Develop partnerships with agencies'] },
+      { type: 'learn', color: 'teal', heading: 'Common mistake to avoid', text: 'Do not confuse activities with outputs. An activity is what you DO (e.g., "conduct trainings"). An output is what you PRODUCE (e.g., "12 trainings conducted, 120 participants reached").' },
+      { type: 'learn', color: 'coral', heading: 'Equity lens', text: 'Are your activities accessible and culturally responsive? Who participates in designing them? Incorporating community voice in activity design is itself an equity practice.' }
+    ],
+    fields: [
+      { key: 'activities', label: 'Program Activities', type: 'textarea', placeholder: 'List all major activities your program conducts. Organize by category if helpful (e.g., Direct Services, Community Engagement, Capacity Building).\n\ne.g.:\nDirect Services:\n- Conduct weekly home visits with fathers\n- Facilitate monthly group sessions\n- Provide one-on-one case management\n\nAssessment:\n- Administer baseline and follow-up assessments\n- Conduct quarterly formal assessments\n\nPartnerships:\n- Develop referral network for fathers\n- Coordinate with community agencies', height: 200 }
+    ]
+  },
+
+  // 3 – Outputs
+  {
+    label: 'Outputs',
+    colorClass: 'amber',
+    componentLabel: 'PROCESS COMPONENT',
+    subtitle: 'Outputs are the direct, countable products of your activities — the size and scope of what was delivered. They answer: how much? how many? what type?',
+    sidebar: [
+      { type: 'learn', color: 'amber', heading: 'What are outputs?', text: 'Outputs are tangible, measurable products of activities. They document that the program happened. Think: numbers, counts, types, and reach.', examples: ['# of home visits conducted per month', '# of clients served', '# of trainings completed', 'Retention / completion rates', 'Types of referrals made', 'Curriculum materials produced'] },
+      { type: 'learn', color: 'coral', heading: 'Outputs vs. Outcomes', text: 'OUTPUTS = what was produced (activity data).\nOUTCOMES = what changed as a result.\n\n"120 parents attended workshops" is an OUTPUT.\n"Parents increased their knowledge of child development" is a SHORT-TERM OUTCOME.', isWarning: true },
+      { type: 'learn', color: 'teal', heading: 'Equity lens', text: 'Are you tracking reach to historically marginalized populations, not just total numbers served? Disaggregating outputs by race, income, geography, and other factors supports equity analysis.' }
+    ],
+    fields: [
+      { key: 'outputs', label: 'Program Outputs', type: 'textarea', placeholder: 'List the direct products and metrics of your activities.\n\ne.g.:\n- Number and frequency of visits (e.g., 1 visit per week per family)\n- Number of clients enrolled and retained\n- Number and types of referrals made per client\n- Number of trainings or sessions delivered\n- Materials produced (curriculum, handouts, assessment tools)\n- Completion and retention rates', height: 180 }
+    ]
+  },
+
+  // 4 – Short-Term Outcomes
+  {
+    label: 'Short-Term Outcomes',
+    colorClass: 'teal',
+    componentLabel: 'OUTCOMES COMPONENT',
+    subtitle: 'Short-term outcomes are the immediate changes that result from participating in the program — what participants learn, know, feel, or believe differently right after engagement.',
+    sidebar: [
+      { type: 'learn', color: 'teal', heading: 'Changes in learning', text: 'Short-term outcomes focus on changes in knowledge, skills, attitudes, and motivation. These are the first "ripples" from your activities.', examples: ['Increased knowledge of available resources', 'Improved attitudes toward services', 'Increased confidence or self-efficacy', 'Changed awareness of a health issue', 'New skills developed'] },
+      { type: 'learn', color: 'amber', heading: 'Time frame', text: 'Short-term outcomes typically occur during or shortly after program participation — within weeks or months. They are the most directly influenced by your outputs.' },
+      { type: 'learn', color: 'coral', heading: 'Equity lens', text: 'Whose definition of "success" are these outcomes based on? Make sure short-term outcomes reflect what participants themselves say matters — not only what funders or researchers prioritize.' }
+    ],
+    fields: [
+      { key: 'shortTerm', label: 'Short-Term Outcomes', type: 'textarea', placeholder: 'What do participants learn, know, feel, or believe differently as a direct result of your program?\n\ne.g.:\n- Increased knowledge of child development and responsive parenting\n- Improved attitudes toward home visiting services\n- Increased awareness of community resources and referrals\n- Improved communication skills with co-parent\n- Increased motivation to engage in their child\'s development', height: 180 }
+    ]
+  },
+
+  // 5 – Intermediate Outcomes
+  {
+    label: 'Intermediate Outcomes',
+    colorClass: 'teal',
+    componentLabel: 'OUTCOMES COMPONENT',
+    subtitle: 'Intermediate outcomes are behavioral and practice changes that bridge short-term learning changes to long-term impacts. They represent change in action, not just in knowledge.',
+    sidebar: [
+      { type: 'learn', color: 'teal', heading: 'Changes in behavior', text: 'Intermediate outcomes typically involve: Modified behavior or practice, changed decisions, new practices adopted, or policy changes at an organizational level.', examples: ['Increased participation in home visits', 'Adoption of positive parenting practices', 'Seeking out community services independently', 'Changed work practices by staff', 'Policy changes at partner organizations'] },
+      { type: 'learn', color: 'amber', heading: 'The bridge', text: 'Intermediate outcomes link what people LEARNED (short-term) to what changed in their lives (long-term). Ask: if participants gained this knowledge/skill, what would they DO differently?' },
+      { type: 'learn', color: 'coral', heading: 'Equity lens', text: 'Consider structural barriers to behavior change. A father may want to change behavior but face systemic obstacles — job instability, housing insecurity, discrimination. Name these in your assumptions.' }
+    ],
+    fields: [
+      { key: 'intermediate', label: 'Intermediate Outcomes', type: 'textarea', placeholder: 'What do participants DO differently? How do their behaviors, decisions, or practices change?\n\ne.g.:\n- Increased engagement and participation in weekly home visits\n- Adoption of responsive parenting and nurturing behaviors\n- Independently seeking out community services and referrals\n- Improved co-parenting communication and conflict resolution\n- Home visitors consistently using engagement tools with fathers', height: 180 }
+    ]
+  },
+
+  // 6 – Long-Term Outcomes
+  {
+    label: 'Long-Term Outcomes',
+    colorClass: 'teal',
+    componentLabel: 'OUTCOMES COMPONENT',
+    subtitle: 'Long-term outcomes are the ultimate conditions of change your program strives toward. These are systemic, community, or population-level shifts that may take years to achieve.',
+    sidebar: [
+      { type: 'learn', color: 'teal', heading: 'Changes in condition', text: 'Long-term outcomes represent significant changes in human, economic, civic, or environmental conditions.\n\nTypes of condition change:', examples: ['Human: from risk to safety, from isolation to connection', 'Economic: from unemployed to employed, from food insecure to stable', 'Civic: from disenfranchised to empowered', 'Environmental: from unsafe to safe spaces'] },
+      { type: 'learn', color: 'amber', heading: 'Stay realistic', text: 'Common mistake: claiming population-level outcomes (e.g., "reduced citywide crime") for a small program. Long-term outcomes should be ambitious but still within the program\'s plausible sphere of influence.' },
+      { type: 'learn', color: 'coral', heading: 'Equity lens', text: 'Long-term outcomes are where equity goals often live. If your program aims to reduce disparities, name which disparities and for which populations. Vague "improved wellbeing" obscures equity intent.' }
+    ],
+    fields: [
+      { key: 'longTerm', label: 'Long-Term Outcomes', type: 'textarea', placeholder: 'What are the ultimate changes in condition, status, or systems your program hopes to contribute to?\n\ne.g.:\n- Reduced rates of child maltreatment and abuse reports in participant families\n- Strengthened father-child relationships and secure family bonds\n- Improved co-parenting functioning and reduced domestic conflict\n- Increased family stability and economic self-sufficiency\n- Program results inform policy to support father engagement in family services', height: 180 }
+    ]
+  },
+
+  // 7 – External Factors
+  {
+    label: 'External Factors',
+    colorClass: 'coral',
+    componentLabel: 'CONTEXTUAL COMPONENT',
+    subtitle: 'External factors are conditions outside your program\'s control that can influence — help or hinder — whether your logic model works. Naming them is an act of intellectual honesty.',
+    sidebar: [
+      { type: 'learn', color: 'coral', heading: 'What are external factors?', text: 'These are environmental conditions over which you have little or no control but that affect your outcomes. They can help or work against your program.', examples: ['Political climate and policy changes', 'Funding availability', 'Economic conditions (housing market, employment)', 'Competing programs or initiatives', 'Community readiness and trust', 'Social norms'] },
+      { type: 'learn', color: 'amber', heading: 'CDC guidance', text: 'Consider contextual factors in program planning. Either address them directly or collect data on them as part of your process evaluation — especially factors likely to affect outcomes.' },
+      { type: 'learn', color: 'teal', heading: 'Equity lens — name structure', text: 'Do not neutralize structural factors. "Systemic racism," "poverty," and "housing instability" are not generic context — they are specific, named barriers. Name them explicitly in your model.' }
+    ],
+    fields: [
+      { key: 'externalFactors', label: 'External Factors / Environmental Influences', type: 'textarea', placeholder: 'List the external conditions — positive or negative — that could affect whether your program achieves its outcomes. Be specific.\n\ne.g.:\n- Political climate around family services and public funding\n- Availability of affordable housing and employment in the community\n- Racial and economic disparities that create barriers to engagement\n- Competing demands on participants\' time (work, childcare, transportation)\n- State and federal policy changes affecting program eligibility\n- Community trust in social service institutions', height: 180 }
+    ]
+  },
+
+  // 8 – Assumptions
+  {
+    label: 'Assumptions',
+    colorClass: 'amber',
+    componentLabel: 'CONTEXTUAL COMPONENT',
+    subtitle: 'Assumptions are the beliefs that underlie your program\'s theory — the things you believe to be true that justify why the arrows in your model point the way they do.',
+    sidebar: [
+      { type: 'learn', color: 'amber', heading: 'What are assumptions?', text: 'Assumptions are beliefs about the program, resources, and context — based on research, best practice, experience, and values. They explain why your activities are expected to lead to your outcomes.', examples: ['Funding will remain secure', 'Participants can access services', 'Teaching information leads to adoption', 'Policy changes translate to behavior change', 'Partner organizations will maintain commitments'] },
+      { type: 'learn', color: 'coral', heading: 'Equity CHECK', text: 'The most dangerous hidden assumption: "Structural barriers will not prevent participation." This assumption is often wrong for marginalized populations. Interrogate whose knowledge and experience shapes each assumption.', isWarning: true },
+      { type: 'learn', color: 'teal', heading: 'Why surfacing assumptions matters', text: 'Inaccurate or overlooked assumptions are a primary reason programs fail to achieve expected outcomes. Naming them allows you to test them, address them, and build a stronger evaluation plan.' }
+    ],
+    fields: [
+      { key: 'assumptions', label: 'Program Assumptions', type: 'textarea', placeholder: 'List the beliefs underlying your program\'s theory of change. What must be true for each arrow in your model to hold?\n\ne.g.:\n- Fathers who increase engagement in home visits will improve their parenting practices\n- Home visitors who are comfortable engaging fathers will be more effective with them\n- Improved parenting practices lead to reduced maltreatment risk\n- Families can access services without transportation or childcare barriers (INTERROGATE THIS)\n- Program funding will remain stable throughout the pilot\n- Organizational partners will sustain their referral relationships', height: 200 }
+    ]
+  },
+
+  // 9 – Preview
+  {
+    label: 'Your Logic Model',
+    colorClass: 'green',
+    subtitle: 'Review your completed logic model below. When you\'re satisfied, download your materials.',
+    sidebar: [
+      { type: 'learn', color: 'green', heading: 'What to review', text: 'Read your model left to right. Ask: Does each step logically lead to the next? Are there any missing links? Does the chain hold up from inputs all the way to your long-term outcomes?' },
+      { type: 'learn', color: 'amber', heading: 'Iteration is expected', text: 'A first draft logic model is rarely final. Share it with colleagues and your practicum supervisor. Stakeholder review often reveals gaps, mismatches, and new insights.' },
+      { type: 'learn', color: 'coral', heading: 'Using it for evaluation', text: 'Every box and every arrow in your model is a potential evaluation question. Your logic model is now the foundation for your evaluation plan (due June 15).' }
+    ]
+  }
+];
+
+// ─── Render step nav ────────────────────────────────────────────────────────────
+function renderNav() {
+  const nav = document.getElementById('stepNav');
+  nav.innerHTML = steps.map((s, i) => `
+    <div class="step-item ${i === currentStep && !showingResources ? 'active' : ''} ${completed.has(i) ? 'done' : ''}" onclick="goToStep(${i})">
+      <div class="step-num">${completed.has(i) ? '✓' : i + 1}</div>
+      <span>${s.short}</span>
+    </div>
+    ${i < steps.length - 1 ? '<span class="step-arrow">›</span>' : ''}
+  `).join('') + `
+    <span class="step-arrow" style="margin-left:1rem">|</span>
+    <div class="step-item ${showingResources ? 'active' : ''}" onclick="showResources()" style="margin-left:0.5rem">
+      <div class="step-num" style="background:var(--teal);color:white">R</div>
+      <span>Resources</span>
+    </div>
+  `;
+}
+
+let showingResources = false;
+
+// ─── Render sidebar ─────────────────────────────────────────────────────────────
+function renderSidebar(step) {
+  const sc = stepContent[step];
+  const sidebar = document.getElementById('sidebar');
+  const pct = Math.round((currentStep / (steps.length - 1)) * 100);
+
+  let html = `
+    <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%"></div></div>
+    <p style="font-size:0.75rem;color:var(--midgray);margin-bottom:1rem">Step ${currentStep + 1} of ${steps.length}</p>
+  `;
+
+  (sc.sidebar || []).forEach(item => {
+    html += `<div class="learn-box ${item.color}">
+      <h4>${item.heading}</h4>
+      <p>${item.text.replace(/\n/g, '<br>')}</p>
+      ${item.examples ? `<div style="margin-top:0.5rem">${item.examples.map(e => `<span class="example-tag">${e}</span>`).join('')}</div>` : ''}
+    </div>`;
+  });
+
+  sidebar.innerHTML = html;
+}
+
+// ─── Render content ─────────────────────────────────────────────────────────────
+function renderContent(step) {
+  const sc = stepContent[step];
+  const content = document.getElementById('contentArea');
+
+  if (step === 9) {
+    renderPreviewStep(content);
+    return;
+  }
+
+  let labelHtml = '';
+  if (sc.componentLabel) {
+    const labelColor = sc.colorClass === 'amber' ? 'var(--amber)' : sc.colorClass === 'teal' ? 'var(--teal)' : 'var(--coral)';
+    labelHtml = `<span class="component-label" style="background:${labelColor}20;color:${labelColor};border:1px solid ${labelColor}">${sc.componentLabel}</span><br>`;
+  }
+
+  let fieldsHtml = '';
+  (sc.fields || []).forEach(f => {
+    const val = data[f.key] || '';
+    if (f.type === 'text') {
+      fieldsHtml += `<div class="input-card">
+        <h3>${f.label}</h3>
+        <input type="text" id="field_${f.key}" value="${escHtml(val)}" placeholder="${f.placeholder}" oninput="saveField('${f.key}',this.value)">
+      </div>`;
+    } else {
+      const h = f.height ? `style="min-height:${f.height}px"` : '';
+      fieldsHtml += `<div class="input-card">
+        <h3>${f.label}</h3>
+        ${f.hint ? `<p class="card-hint">${f.hint}</p>` : ''}
+        <textarea id="field_${f.key}" placeholder="${f.placeholder}" ${h} oninput="saveField('${f.key}',this.value)">${escHtml(val)}</textarea>
+      </div>`;
+    }
+  });
+
+  // Special layout for Inputs (2-col subcategory grid)
+  if (step === 1) {
+    fieldsHtml = `
+      <div class="input-card">
+        <h3>Financial Resources</h3>
+        <p class="card-hint">Grant funding, operating budget, private money, in-kind donations, staff time value.</p>
+        <textarea id="field_financial" placeholder="e.g., Federal grant ($250,000), operating budget ($50,000), in-kind donations from partner organizations." style="min-height:90px" oninput="saveField('financial',this.value)">${escHtml(data.financial)}</textarea>
+      </div>
+      <div class="input-card">
+        <h3>Physical Resources</h3>
+        <p class="card-hint">Spaces, equipment, materials, technology, supplies.</p>
+        <textarea id="field_physical" placeholder="e.g., Client homes, office space, training curriculum manual, assessment tools, referral directory." style="min-height:90px" oninput="saveField('physical',this.value)">${escHtml(data.physical)}</textarea>
+      </div>
+      <div class="input-card">
+        <h3>Human Resources</h3>
+        <p class="card-hint">Staff, volunteers, consultants, partners, participants.</p>
+        <textarea id="field_human" placeholder="e.g., 4 home visitors (FTE), 1 supervisor, trainer, partner agencies, program families." style="min-height:90px" oninput="saveField('human',this.value)">${escHtml(data.human)}</textarea>
+      </div>
+      <div class="input-card">
+        <h3>Knowledge Resources</h3>
+        <p class="card-hint">Research base, community expertise, existing systems, partner networks.</p>
+        <textarea id="field_knowledge" placeholder="e.g., Evidence base on father engagement, community expertise of participants, care delivery systems." style="min-height:90px" oninput="saveField('knowledge',this.value)">${escHtml(data.knowledge)}</textarea>
+      </div>`;
+  }
+
+  content.innerHTML = `
+    <div class="section-header">
+      ${labelHtml}
+      <h2>${sc.label}</h2>
+      <p class="subtitle">${sc.subtitle}</p>
+    </div>
+    ${fieldsHtml}
+    <div class="nav-row">
+      <button class="btn btn-secondary" onclick="prevStep()" ${step === 0 ? 'disabled' : ''}>← Back</button>
+      <span style="font-size:0.8rem;color:var(--midgray)">${step + 1} / ${steps.length}</span>
+      <button class="btn btn-primary" onclick="nextStep()">Next →</button>
+    </div>
+  `;
+}
+
+// ─── Preview step ───────────────────────────────────────────────────────────────
+function renderPreviewStep(content) {
+  buildLogicModelPreview();
+  content.innerHTML = `
+    <div class="section-header">
+      <h2>Your Logic Model</h2>
+      <p class="subtitle">Review the logic model you have built. Download your materials below. Go back to any section to refine your entries.</p>
+    </div>
+    <div class="alert alert-teal">
+      <strong>Tip:</strong> Share this with your practicum supervisor and revise together. Logic models built collaboratively with stakeholders are stronger evaluation tools.
+    </div>
+    <div id="logic-model-preview"></div>
+    <div class="download-panel">
+      <h3>Download Your Materials</h3>
+      <div class="download-grid">
+        <button class="download-btn" onclick="downloadPNG()">
+          <div class="download-icon" style="background:#E8F5E8;color:#2D7A2D">PNG</div>
+          <div><div>Logic Model Image</div><div style="font-size:0.75rem;font-weight:400;color:var(--midgray)">High-resolution PNG for presentations</div></div>
+        </button>
+        <button class="download-btn" onclick="downloadPDF()">
+          <div class="download-icon" style="background:#FDECEA;color:#B85042">PDF</div>
+          <div><div>Logic Model PDF</div><div style="font-size:0.75rem;font-weight:400;color:var(--midgray)">Printable PDF of your logic model</div></div>
+        </button>
+        <button class="download-btn" onclick="downloadCheatSheet()">
+          <div class="download-icon" style="background:var(--amber-light);color:var(--amber-dark)">CS</div>
+          <div><div>Cheat Sheet</div><div style="font-size:0.75rem;font-weight:400;color:var(--midgray)">Quick reference guide to logic model components</div></div>
+        </button>
+        <button class="download-btn" onclick="downloadChecklist()">
+          <div class="download-icon" style="background:var(--teal-light);color:var(--teal)">CL</div>
+          <div><div>Quality Checklist</div><div style="font-size:0.75rem;font-weight:400;color:var(--midgray)">Review your logic model for completeness</div></div>
+        </button>
+      </div>
+    </div>
+    <div class="nav-row">
+      <button class="btn btn-secondary" onclick="prevStep()">← Back</button>
+      <span style="font-size:0.8rem;color:var(--midgray)">Step ${currentStep + 1} of ${steps.length}</span>
+      <span></span>
+    </div>
+  `;
+  buildLogicModelPreview();
+}
+
+function buildLogicModelPreview() {
+  const el = document.getElementById('logic-model-preview');
+  if (!el) return;
+
+  const inputs = [data.financial, data.physical, data.human, data.knowledge].filter(Boolean).join('\n\n');
+
+  el.innerHTML = `
+    <div class="lm-title">Logic Model: <span style="color:var(--teal)">${data.programName || '[Program Name]'}</span></div>
+    ${data.problem ? `<div class="lm-program-name">Problem addressed: ${data.problem.substring(0,120)}${data.problem.length > 120 ? '...' : ''}</div>` : ''}
+    <div class="lm-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="lm-process-bar">◀ PROCESS</div>
+      <div class="lm-outcome-bar">OUTCOMES ▶</div>
+    </div>
+    <div class="lm-grid">
+      <div>
+        <div class="lm-col-header" style="background:var(--coral)">Inputs</div>
+        <div class="lm-cell">${fmtLMText(inputs || '—')}</div>
+      </div>
+      <div>
+        <div class="lm-col-header" style="background:var(--amber)">Activities</div>
+        <div class="lm-cell">${fmtLMText(data.activities || '—')}</div>
+      </div>
+      <div>
+        <div class="lm-col-header" style="background:var(--amber-dark)">Outputs</div>
+        <div class="lm-cell">${fmtLMText(data.outputs || '—')}</div>
+      </div>
+      <div>
+        <div class="lm-col-header" style="background:var(--teal)">Short-Term Outcomes</div>
+        <div class="lm-cell">${fmtLMText(data.shortTerm || '—')}</div>
+      </div>
+      <div>
+        <div class="lm-col-header" style="background:var(--teal)">Intermediate Outcomes</div>
+        <div class="lm-cell">${fmtLMText(data.intermediate || '—')}</div>
+      </div>
+      <div>
+        <div class="lm-col-header" style="background:var(--slate)">Long-Term Outcomes</div>
+        <div class="lm-cell">${fmtLMText(data.longTerm || '—')}</div>
+      </div>
+    </div>
+    <div class="lm-footer-grid">
+      <div class="lm-footer-cell ext">
+        <strong>External Factors / Environmental Influences</strong>
+        ${fmtLMText(data.externalFactors || '—')}
+      </div>
+      <div class="lm-footer-cell assume">
+        <strong>Assumptions</strong>
+        ${fmtLMText(data.assumptions || '—')}
+      </div>
+    </div>
+  `;
+}
+
+function fmtLMText(txt) {
+  if (!txt || txt === '—') return '<em style="color:#BEC5CF">—</em>';
+  // Truncate for display
+  const lines = txt.split('\n').filter(l => l.trim()).slice(0, 8);
+  return lines.join('\n');
+}
+
+// ─── Navigation ──────────────────────────────────────────────────────────────────
+function nextStep() {
+  completed.add(currentStep);
+  currentStep = Math.min(currentStep + 1, steps.length - 1);
+  render();
+}
+function prevStep() {
+  currentStep = Math.max(currentStep - 1, 0);
+  render();
+}
+function goToStep(i) {
+  currentStep = i;
+  render();
+}
+function render() {
+  showingResources = false;
+  renderNav();
+  renderSidebar(currentStep);
+  renderContent(currentStep);
+  window.scrollTo(0, 0);
+}
+
+// ─── Field save ───────────────────────────────────────────────────────────────────
+function saveField(key, val) { data[key] = val; }
+
+// ─── Utility ───────────────────────────────────────────────────────────────────────
+function escHtml(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ─── Downloads ────────────────────────────────────────────────────────────────────
+async function downloadPNG() {
+  const el = document.getElementById('logic-model-preview');
+  if (!el) return alert('Please go to the final step first.');
+  const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+  const link = document.createElement('a');
+  link.download = 'Logic_Model.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+async function downloadPDF() {
+  const { jsPDF } = window.jspdf;
+  const el = document.getElementById('logic-model-preview');
+  if (!el) return alert('Please go to the final step first.');
+  const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+  const imgData = canvas.toDataURL('image/png');
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const ratio = canvas.height / canvas.width;
+  const w = pageW - 20;
+  const h = w * ratio;
+  pdf.setFontSize(14); pdf.setFont('helvetica', 'bold');
+  pdf.text('Logic Model: ' + (data.programName || '[Program Name]'), 10, 12);
+  pdf.addImage(imgData, 'PNG', 10, 18, w, Math.min(h, pageH - 28));
+  pdf.save('Logic_Model.pdf');
+}
+
+async function downloadCheatSheet() {
+  const { jsPDF } = window.jspdf;
+
+  // Build cheat sheet DOM
+  const el = document.getElementById('cheat-sheet');
+  el.style.display = 'block';
+  el.innerHTML = `
+    <h2>Logic Model Quick Reference</h2>
+    <div class="cs-grid">
+      <div class="cs-card" style="border-color:#D4952A;background:#FFF3DC">
+        <h3 style="color:#A67220">Inputs — What you invest</h3>
+        <p>All resources that go into the program: financial, physical, human, and knowledge.</p>
+        <ul><li>Financial: grants, operating budget, donations</li><li>Physical: space, equipment, supplies</li><li>Human: staff, volunteers, partners, participants</li><li>Knowledge: research base, community expertise, systems</li></ul>
+      </div>
+      <div class="cs-card" style="border-color:#D4952A;background:#FFF3DC">
+        <h3 style="color:#A67220">Activities — What you do</h3>
+        <p>Events, services, processes, and tools undertaken by the program. Use action verbs.</p>
+        <ul><li>Provide, conduct, develop, facilitate, connect, recruit, train, assess</li><li>Direct services, community engagement, capacity building</li></ul>
+      </div>
+      <div class="cs-card" style="border-color:#A67220;background:#FFF3DC">
+        <h3 style="color:#A67220">Outputs — What you produce</h3>
+        <p>Direct, countable products of activities. Documents that the program happened.</p>
+        <ul><li># of sessions, trainings, visits, participants served</li><li>Materials produced, retention rates, referrals made</li><li>NOT the same as outcomes — outputs are counts, not changes</li></ul>
+      </div>
+      <div class="cs-card" style="border-color:#2A6E7F;background:#D8EEF3">
+        <h3 style="color:#2A6E7F">Short-Term Outcomes — Changes in learning</h3>
+        <p>Immediate changes after participation: knowledge, skills, attitudes, motivation.</p>
+        <ul><li>New knowledge or awareness</li><li>Increased skills</li><li>Changed attitudes, values, or motivation</li></ul>
+      </div>
+      <div class="cs-card" style="border-color:#D4A800;background:#FFFBE6">
+        <h3 style="color:#A67800">Intermediate Outcomes — Changes in behavior</h3>
+        <p>Behavioral and practice changes that bridge learning to long-term conditions.</p>
+        <ul><li>Modified behavior or practice</li><li>Changed decisions or policies</li><li>New practices adopted</li></ul>
+      </div>
+      <div class="cs-card" style="border-color:#4A5568;background:#F8F9FA">
+        <h3 style="color:#4A5568">Long-Term Outcomes — Changes in condition</h3>
+        <p>Ultimate systemic, community, or population-level shifts over time.</p>
+        <ul><li>Human, economic, civic, or environmental condition changes</li><li>Scope to what your program can plausibly influence</li></ul>
+      </div>
+      <div class="cs-card" style="border-color:#B85042;background:#FDECEA">
+        <h3 style="color:#B85042">External Factors — What you can't control</h3>
+        <p>Environmental conditions that affect program success. Name them — don't hide them.</p>
+        <ul><li>Political climate, policy changes, funding availability</li><li>Structural inequities: racism, poverty, housing</li><li>Community trust, competing initiatives</li></ul>
+      </div>
+      <div class="cs-card" style="border-color:#D4952A;background:#FFF3DC">
+        <h3 style="color:#A67220">Assumptions — What you believe</h3>
+        <p>Beliefs underlying your theory of change. Every arrow has an assumption behind it.</p>
+        <ul><li>Resources, participation, learning, systems, policy</li><li>Interrogate equity assumptions carefully</li><li>Surface these with stakeholders — don't leave them implicit</li></ul>
+      </div>
+    </div>
+    <div style="margin-top:14px;padding:10px 14px;background:#D8EEF3;border-left:4px solid #2A6E7F;border-radius:4px;font-size:0.78rem;color:#2A6E7F">
+      <strong>Key distinction:</strong> Outputs = what was produced (activity data). Outcomes = what changed as a result. "120 parents attended workshops" is an output. "Parents increased knowledge of child development" is a short-term outcome.
+    </div>
+  `;
+
+  const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+  const imgData = canvas.toDataURL('image/png');
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageW = pdf.internal.pageSize.getWidth();
+  const ratio = canvas.height / canvas.width;
+  pdf.addImage(imgData, 'PNG', 5, 5, pageW - 10, (pageW - 10) * ratio);
+  pdf.save('Logic_Model_Cheat_Sheet.pdf');
+  el.style.display = 'none';
+}
+
+async function downloadChecklist() {
+  const { jsPDF } = window.jspdf;
+
+  const el = document.getElementById('checklist');
+  el.style.display = 'block';
+  el.innerHTML = `
+    <h2>Logic Model Quality Checklist</h2>
+    <p style="font-size:0.82rem;color:#4A5568;margin-bottom:14px">Use this checklist to review your logic model before submitting your evaluation plan.</p>
+
+    <div class="cl-section">Program Description</div>
+    <div class="cl-item"><div class="cl-box"></div><div class="cl-text"><strong>Program name and purpose are clearly stated</strong>The logic model has a title and the reader can understand what the program does.</div></div>
+    <div class="cl-item"><div class="cl-box"></div><div class="cl-text"><strong>Target population is specific</strong>Not just "families" or "youth" — includes relevant demographics, geography, and circumstances.</div></div>
+
+    <div class="cl-section">Process Side (Inputs, Activities, Outputs)</div>
+    <div class="cl-item"><div class="cl-box"></div><div class="cl-text"><strong>Inputs reflect the full range of resources</strong>Financial, physical, human, AND knowledge resources are included.</div></div>
+    <div class="cl-item"><div class="cl-box"></div><div class="cl-text"><strong>Activities use action verbs</strong>Each activity starts with a verb (provide, conduct, facilitate, develop, connect).</div></div>
+    <div class="cl-item"><div class="cl-box"></div><div class="cl-text"><strong>Outputs are counts, not changes</strong>Outputs include numbers, types, and reach — not participant outcomes.</div></div>
+    <div class="cl-item"><div class="cl-box"></div><div class="cl-text"><strong>Outputs and activities are distinguishable</strong>You can clearly tell what you DO (activity) from what you PRODUCE (output).</div></div>
+
+    <div class="cl-section">Outcomes Side</div>
+    <div class="cl-item"><div class="cl-box"></div><div class="cl-text"><strong>Short-term outcomes describe changes in learning</strong>Knowledge, skills, attitudes, or motivation — things that can change quickly after participation.</div></div>
+    <div class="cl-item"><div class="cl-box"></div><div class="cl-text"><strong>Intermediate outcomes describe changes in behavior</strong>What participants DO differently as a result of what they learned.</div></div>
+    <div class="cl-item"><div class="cl-box"></div><div class="cl-text"><strong>Long-term outcomes are realistic in scope</strong>Outcomes are ambitious but plausibly attributable to this program's work.</div></div>
+    <div class="cl-item"><div class="cl-box"></div><div class="cl-text"><strong>The logic chain holds together</strong>Each outcome logically leads to the next. You can trace a clear path from inputs to long-term change.</div></div>
+
+    <div class="cl-section">Contextual Components</div>
+    <div class="cl-item"><div class="cl-box"></div><div class="cl-text"><strong>External factors are named specifically</strong>Not vague "political environment" — specific factors like "state policy changes to Medicaid eligibility" or "rising housing costs."</div></div>
+    <div class="cl-item"><div class="cl-box"></div><div class="cl-text"><strong>Structural factors are explicitly named</strong>Racism, poverty, discrimination, and other structural barriers are named — not hidden as neutral context.</div></div>
+    <div class="cl-item"><div class="cl-box"></div><div class="cl-text"><strong>Assumptions box is not blank</strong>At least 4–6 assumptions are stated. The model explains WHY activities lead to outcomes.</div></div>
+    <div class="cl-item"><div class="cl-box"></div><div class="cl-text"><strong>Equity assumptions are interrogated</strong>The model explicitly questions whether structural barriers to participation have been addressed.</div></div>
+
+    <div class="cl-section">Equity & Stakeholder Engagement</div>
+    <div class="cl-item"><div class="cl-box"></div><div class="cl-text"><strong>The model has been reviewed with a stakeholder</strong>At least one person from the program (supervisor, staff, or participant) has reviewed and provided feedback.</div></div>
+    <div class="cl-item"><div class="cl-box"></div><div class="cl-text"><strong>Outcomes reflect participant priorities, not only funder priorities</strong>Short-term outcomes include what participants themselves say matters.</div></div>
+    <div class="cl-item"><div class="cl-box"></div><div class="cl-text"><strong>The model can generate evaluation questions</strong>You can write at least one "box question" and one "arrow question" from the model.</div></div>
+  `;
+
+  const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+  const imgData = canvas.toDataURL('image/png');
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const ratio = canvas.height / canvas.width;
+  const totalH = (pageW - 10) * ratio;
+  const pagesNeeded = Math.ceil(totalH / (pageH - 10));
+
+  for (let i = 0; i < pagesNeeded; i++) {
+    if (i > 0) pdf.addPage();
+    pdf.addImage(imgData, 'PNG', 5, -(i * (pageH - 10)) + 5, pageW - 10, totalH);
+  }
+
+  pdf.save('Logic_Model_Checklist.pdf');
+  el.style.display = 'none';
+}
+
+// ─── Resources ───────────────────────────────────────────────────────────────────
+function showResources() {
+  showingResources = true;
+  renderNav();
+  document.getElementById('sidebar').innerHTML = `
+    <div class="learn-box teal">
+      <h4>How to use these resources</h4>
+      <p>Click <strong>Copy Link</strong> next to any resource, then paste the URL into your browser to open it. These are the primary sources that informed the content of this Logic Model Builder.</p>
+    </div>
+    <div class="learn-box amber">
+      <h4>Citation tip</h4>
+      <p>When citing logic model components in your evaluation plan, reference the Kellogg Guide, UW-Extension, or the CDC Evaluation Guide — these are the field's most-cited standards.</p>
+    </div>
+    <div class="learn-box coral">
+      <h4>Course connection</h4>
+      <p>The Brown School Evaluation Center framework (Transparent, Inclusive, Equitable) is the organizing model for this course. The CDC framework is shown for comparison.</p>
+    </div>
+  `;
+
+  function linkRow(url, label) {
+    const short = url.length > 52 ? url.substring(0, 50) + '...' : url;
+    return `<div class="copy-url-wrap">
+      <span class="copy-url-text" title="${url}">${short}</span>
+      <button class="copy-btn" onclick="copyLink('${url}', this)">${label || 'Copy Link'}</button>
+    </div>`;
+  }
+
+  document.getElementById('contentArea').innerHTML = `
+    <div class="section-header">
+      <h2>Resources &amp; References</h2>
+      <p class="subtitle">Click <strong>Copy Link</strong> on any resource, then paste into your browser. All sources informed the prompts, guidance, and equity framing in this builder.</p>
+    </div>
+
+    <p class="resource-section-head">Core Logic Model Frameworks</p>
+
+    <div class="resource-card">
+      <span class="resource-type-badge" style="background:#FFF3DC;color:#A67220">Guide</span>
+      <div style="flex:1">
+        <h4>W.K. Kellogg Foundation Logic Model Development Guide</h4>
+        <p>The foundational guide for logic model development in social programs. Covers all components, theory of change rationale, and practical development steps.</p>
+        ${linkRow('https://share.google/e6vXRhNNjRBB03jCl', 'Copy Link')}
+      </div>
+    </div>
+
+    <div class="resource-card">
+      <span class="resource-type-badge" style="background:#D8EEF3;color:#2A6E7F">Guide</span>
+      <div style="flex:1">
+        <h4>University of Wisconsin-Extension: Enhancing Program Performance with Logic Models</h4>
+        <p>Taylor-Powell, Jones, &amp; Henert (2002). The UW-Extension logic model course and guide — a practical resource for logic model construction used throughout this builder.</p>
+        ${linkRow('https://logicmodel.extension.wisc.edu/', 'Copy Link')}
+      </div>
+    </div>
+
+    <div class="resource-card">
+      <span class="resource-type-badge" style="background:#FDECEA;color:#B85042">Guide</span>
+      <div style="flex:1">
+        <h4>CDC: Developing and Using a Logic Model — Evaluation Guide</h4>
+        <p>Provides a comprehensive framework for logic model components, theories of change, and evaluation domains (implementation, effectiveness, efficiency, causal attribution).</p>
+        ${linkRow('https://share.google/TDhxsj1bPeJS7HvUf', 'Copy Link')}
+      </div>
+    </div>
+
+    <div class="resource-card">
+      <span class="resource-type-badge" style="background:#FFF3DC;color:#A67220">Book</span>
+      <div style="flex:1">
+        <h4>Knowlton &amp; Phillips — The Logic Model Guidebook: Better Strategies for Great Results</h4>
+        <p>A comprehensive textbook on logic model theory and practice. Covers logic model types, development processes, and their role in program planning and evaluation.</p>
+        ${linkRow('https://share.google/5ts8ONLw7qv54dfAu', 'Copy Link')}
+      </div>
+    </div>
+
+    <div class="resource-card">
+      <span class="resource-type-badge" style="background:#D8EEF3;color:#2A6E7F">Workbook</span>
+      <div style="flex:1">
+        <h4>Logic Model Workbook</h4>
+        <p>A step-by-step workbook for constructing and refining a logic model — used as supplementary course reading for hands-on practice.</p>
+        ${linkRow('https://share.google/w81rMv3LswsB1veuI', 'Copy Link')}
+      </div>
+    </div>
+
+    <p class="resource-section-head">Evaluation Frameworks &amp; Centers</p>
+
+    <div class="resource-card">
+      <span class="resource-type-badge" style="background:#D8EEF3;color:#2A6E7F">Center</span>
+      <div style="flex:1">
+        <h4>Brown School Evaluation Center — Washington University in St. Louis</h4>
+        <p>The evaluation framework used throughout this course: Transparent, Inclusive, and Equitable evaluation. Source of the logic model template and "Dads Matter" example used in class.</p>
+        ${linkRow('https://evaluationcenter.wustl.edu/', 'Copy Link')}
+      </div>
+    </div>
+
+    <div class="resource-card">
+      <span class="resource-type-badge" style="background:#E8F5E8;color:#2D7A2D">Framework</span>
+      <div style="flex:1">
+        <h4>CREE Principles — Culturally Responsive and Equitable Evaluation</h4>
+        <p>Seven principles for embedding equity into evaluation practice — promotion of equity &amp; social justice, engagement of partners, team composition, cultural contexts, intentional methods, inclusive interpretation, and accessible findings.</p>
+        ${linkRow('https://evaluationcenter.wustl.edu/about-us/our-guiding-values/', 'Copy Link')}
+      </div>
+    </div>
+
+    <p class="resource-section-head">Applied Program Evaluation Research</p>
+
+    <div class="resource-card">
+      <span class="resource-type-badge" style="background:#D8EEF3;color:#2A6E7F">Journal</span>
+      <div style="flex:1">
+        <h4>Preventing Chronic Disease (PCD) — CDC Journal</h4>
+        <p>Peer-reviewed public health journal publishing logic model applications in chronic disease prevention, community health interventions, and disparities reduction. Multiple articles used as course readings.</p>
+        ${linkRow('https://www.cdc.gov/pcd/#:~:text=Accepted%20manuscripts%20are%20published%20on,Challenges%20(Due%20June%2015%2C%202026)', 'Copy Link')}
+        ${linkRow('https://www.cdc.gov/pcd/issues/2006/jan/pdf/05_0131.pdf', 'Copy Article (2006)')}
+      </div>
+    </div>
+
+    <div class="resource-card">
+      <span class="resource-type-badge" style="background:#E8F5E8;color:#2D7A2D">Journal</span>
+      <div style="flex:1">
+        <h4>Implementation Science — Springer</h4>
+        <p>Research on how logic models support translating evidence-based interventions into practice and the linkage between program theory and implementation fidelity.</p>
+        ${linkRow('https://link.springer.com/journal/13012', 'Copy Link')}
+        ${linkRow('https://pmc.ncbi.nlm.nih.gov/articles/PMC7523057/', 'Copy Article (PMC)')}
+      </div>
+    </div>
+
+    <p class="resource-section-head">Course &amp; Program Resources</p>
+
+    <div class="resource-card">
+      <span class="resource-type-badge" style="background:#D8EEF3;color:#2A6E7F">Reports</span>
+      <div style="flex:1">
+        <h4>Brown School Evaluation Center — Reports &amp; Briefs</h4>
+        <p>Real-world program evaluation reports including the St. Louis Guaranteed Basic Income (GBI) Program evaluation discussed in Week 2.</p>
+        ${linkRow('https://evaluationcenter.wustl.edu/products/reports/', 'Copy Link')}
+      </div>
+    </div>
+
+    <div class="resource-card">
+      <span class="resource-type-badge" style="background:#FDECEA;color:#B85042">Reports</span>
+      <div style="flex:1">
+        <h4>Mathematica Policy Research</h4>
+        <p>A leading evaluation research organization. Used as a source for finding program evaluation reports in the case study assignment.</p>
+        ${linkRow('https://www.mathematica.org/solutions/research-and-evaluation', 'Copy Link')}
+      </div>
+    </div>
+
+    <div class="resource-card">
+      <span class="resource-type-badge" style="background:#FFF3DC;color:#A67220">Report</span>
+      <div style="flex:1">
+        <h4>Chapin Hall at the University of Chicago — CYPP Report</h4>
+        <p>Policy and program evaluation research center. Source for case study presentations in the course.</p>
+        ${linkRow('https://www.chapinhall.org/wp-content/uploads/PDF/CYPP-Final-report.pdf', 'Copy Link')}
+      </div>
+    </div>
+
+    <div style="margin-top:2rem;padding:1rem 1.2rem;background:var(--teal-light);border-left:4px solid var(--teal);border-radius:8px;">
+      <p style="font-size:0.85rem;color:var(--teal-dark)"><strong>Created by Jenika Towana Scott, M.S.W. (PhD Student)</strong><br>
+      Evaluation of Programs and Services — Logic Model Builder &nbsp;|&nbsp; Content informed by the above sources. Logic model framework grounded in Brown School Evaluation Center and UW-Extension standards.</p>
+    </div>
+
+    <div class="nav-row">
+      <button class="btn btn-secondary" onclick="showingResources=false;render()">&#8592; Back to Builder</button>
+      <span></span><span></span>
+    </div>
+  `;
+}
+
+
+// ─── Override render to handle resources state ────────────────────────────────
+const _origRender = typeof render === 'function' ? render : null;
+
+// ─── Copy link to clipboard (reliable in desktop webview) ────────────────────
+function copyLink(url, btnEl) {
+  navigator.clipboard.writeText(url).then(() => {
+    const orig = btnEl.innerHTML;
+    btnEl.innerHTML = '&#10003; Copied!';
+    btnEl.style.color = 'var(--green)';
+    btnEl.style.fontWeight = '700';
+    setTimeout(() => {
+      btnEl.innerHTML = orig;
+      btnEl.style.color = '';
+      btnEl.style.fontWeight = '';
+    }, 2000);
+  }).catch(() => {
+    // Fallback for older browsers
+    const ta = document.createElement('textarea');
+    ta.value = url;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const orig = btnEl.innerHTML;
+    btnEl.innerHTML = '&#10003; Copied!';
+    btnEl.style.color = 'var(--green)';
+    setTimeout(() => { btnEl.innerHTML = orig; btnEl.style.color = ''; }, 2000);
+  });
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
